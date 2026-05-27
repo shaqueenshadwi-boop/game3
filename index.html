@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 Master Quiz - Feedback Jawaban</title>
+    <style>
+        :root {
+            --bg: #faf8ef;
+            --grid-bg: #bbada0;
+            --cell: #cdc1b4;
+            --text: #776e65;
+            --wrong: #f65e3b;
+            --correct: #00b894;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* BERANDA */
+        #home-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .btn-start {
+            padding: 15px 50px;
+            font-size: 24px;
+            background-color: #8f7a66;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-start:hover { transform: scale(1.1); background-color: var(--text); }
+
+        /* AREA PERMAINAN */
+        .score-container {
+            background: var(--grid-bg);
+            padding: 10px 30px;
+            border-radius: 5px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .grid {
+            width: 380px; height: 380px;
+            background: var(--grid-bg);
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px; padding: 12px;
+        }
+
+        .cell {
+            width: 85px; height: 85px;
+            background: var(--cell);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .tile-2 { background: #eee4da; }
+        .tile-4 { background: #ede0c8; }
+        .tile-8 { background: #f2b179; color: white; }
+        .tile-16 { background: #f59563; color: white; }
+        .tile-32 { background: #f67c5f; color: white; }
+        .tile-64 { background: #f65e3b; color: white; }
+        .tile-128 { background: #edcf72; color: white; }
+        .tile-256 { background: #edcc61; color: white; }
+        .tile-512 { background: #edc850; color: white; }
+        .tile-1024 { background: #edc53f; color: white; font-size: 20px; }
+        .tile-2048 { background: #edc22e; color: white; font-size: 20px; }
+
+        /* MODAL KUIS */
+        #quiz-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        .opt-btn {
+            padding: 15px;
+            border: 2px solid #8f7a66;
+            background: white;
+            color: #8f7a66;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        /* Kelas untuk jawaban benar/salah */
+        .btn-correct { background-color: var(--correct) !important; color: white !important; border-color: var(--correct) !important; }
+        .btn-wrong { background-color: var(--wrong) !important; color: white !important; border-color: var(--wrong) !important; }
+
+        /* ANIMASI SHAKE */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-15px); }
+            50% { transform: translateX(15px); }
+            75% { transform: translateX(-15px); }
+        }
+        .shake-anim { animation: shake 0.4s ease-in-out; }
+    </style>
+</head>
+<body>
+
+    <div id="home-screen">
+        <h1 style="font-size: 55px; margin-bottom: 5px;">2048 MASTER</h1>
+        <p style="font-size: 18px;">Gabungkan kotak & Jawab kuisnya!</p>
+        <button class="btn-start" onclick="mulaiGame()">MULAI</button>
+    </div>
+
+    <div class="score-container">SKOR: <span id="score">0</span></div>
+    <div class="grid" id="grid"></div>
+
+    <div id="quiz-modal">
+        <div id="modal-box" class="modal-content">
+            <h2 id="question-text">Memuat...</h2>
+            <div id="options" class="options-grid"></div>
+            <p id="feedback-text" style="margin-top: 15px; font-weight: bold;"></p>
+        </div>
+    </div>
+
+    <script>
+        const gridDisplay = document.getElementById('grid');
+        const scoreDisplay = document.getElementById('score');
+        const homeScreen = document.getElementById('home-screen');
+        const quizModal = document.getElementById('quiz-modal');
+        const modalBox = document.getElementById('modal-box');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options');
+        const feedbackText = document.getElementById('feedback-text');
+
+        let squares = [];
+        let score = 0;
+        let isQuizActive = false;
+
+        const bankSoal = [
+            { q: "Apa ibukota Indonesia?", a: ["Jakarta", "Surabaya", "Bandung", "Medan"], c: 0 },
+            { q: "Planet terdekat dari Matahari?", a: ["Bumi", "Venus", "Merkurius", "Mars"], c: 2 },
+            { q: "Siapa penemu lampu pijar?", a: ["Einstein", "Newton", "Tesla", "Edison"], c: 3 },
+            { q: "Benua terbesar di dunia?", a: ["Asia", "Afrika", "Eropa", "Amerika"], c: 0 },
+            { q: "Logam cair pada suhu ruang?", a: ["Besi", "Emas", "Raksa", "Perak"], c: 2 },
+            { q: "Mata uang Jepang?", a: ["Won", "Yen", "Yuan", "Ringgit"], c: 1 },
+            { q: "Hewan mamalia terbesar?", a: ["Gajah", "Paus Biru", "Hiu", "Badak"], c: 1 },
+            { q: "Tahun Indonesia Merdeka?", a: ["1944", "1945", "1946", "1947"], c: 1 },
+            { q: "Siapa penulis novel Laskar Pelangi?", a: ["Andrea Hirata", "Tere Liye", "Dee Lestari", "Pramoedya"], c: 0 }
+        ];
+
+        function mulaiGame() {
+            homeScreen.style.display = 'none';
+            score = 0;
+            scoreDisplay.innerHTML = 0;
+            isQuizActive = false;
+            createBoard();
+        }
+
+        function createBoard() {
+            gridDisplay.innerHTML = '';
+            squares = [];
+            for (let i = 0; i < 16; i++) {
+                let cell = document.createElement('div');
+                cell.classList.add('cell');
+                gridDisplay.appendChild(cell);
+                squares.push(cell);
+            }
+            generate(); generate();
+        }
+
+        function generate() {
+            let empty = squares.filter(s => s.innerHTML == "");
+            if (empty.length > 0) {
+                empty[Math.floor(Math.random() * empty.length)].innerHTML = 2;
+                updateStyles();
+            }
+        }
+
+        function panggilKuis(onSuccess) {
+            isQuizActive = true;
+            const soal = bankSoal[Math.floor(Math.random() * bankSoal.length)];
+            questionText.innerHTML = soal.q;
+            optionsContainer.innerHTML = '';
+            feedbackText.innerHTML = '';
+            quizModal.style.display = 'flex';
+
+            soal.a.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.classList.add('opt-btn');
+                btn.innerHTML = opt;
+                btn.onclick = () => {
+                    // Cek Jawaban
+                    if (idx === soal.c) {
+                        btn.classList.add('btn-correct');
+                        setTimeout(() => {
+                            quizModal.style.display = 'none';
+                            isQuizActive = false;
+                            onSuccess();
+                        }, 600);
+                    } else {
+                        // JAWABAN SALAH
+                        btn.classList.add('btn-wrong'); // Merah untuk pilihan Anda
+                        // Tunjukkan yang benar
+                        optionsContainer.children[soal.c].classList.add('btn-correct'); // Hijau untuk yang benar
+                        feedbackText.innerHTML = `SALAH! Jawaban yang benar adalah: ${soal.a[soal.c]}`;
+                        
+                        modalBox.classList.add('shake-anim');
+                        
+                        setTimeout(() => {
+                            modalBox.classList.remove('shake-anim');
+                            quizModal.style.display = 'none';
+                            gameOver();
+                        }, 2000); // Jeda 2 detik agar pemain bisa melihat jawaban yang benar
+                    }
+                };
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function gameOver() {
+            homeScreen.style.display = 'flex';
+            homeScreen.innerHTML = `
+                <h1 style="color:var(--wrong)">GAME OVER</h1>
+                <p>Anda salah menjawab kuis.</p>
+                <p>Skor Akhir: <b>${score}</b></p>
+                <button class="btn-start" onclick="location.reload()">COBA LAGI</button>
+            `;
+            isQuizActive = false;
+        }
+
+        // --- Logika Inti 2048 ---
+        function move(dir) {
+            let currentGrid = squares.map(s => parseInt(s.innerHTML || 0));
+            let mergeDetected = false;
+
+            if (dir === 'left' || dir === 'right') {
+                for (let i = 0; i < 16; i += 4) {
+                    if (canMerge([currentGrid[i], currentGrid[i+1], currentGrid[i+2], currentGrid[i+3]])) mergeDetected = true;
+                }
+            } else {
+                for (let i = 0; i < 4; i++) {
+                    if (canMerge([currentGrid[i], currentGrid[i+4], currentGrid[i+8], currentGrid[i+12]])) mergeDetected = true;
+                }
+            }
+
+            if (mergeDetected) panggilKuis(() => executeMove(dir));
+            else executeMove(dir);
+        }
+
+        function canMerge(line) {
+            let f = line.filter(n => n !== 0);
+            for (let i = 0; i < f.length - 1; i++) if (f[i] === f[i+1]) return true;
+            return false;
+        }
+
+        function executeMove(dir) {
+            let hasChanged = false;
+            const isH = (dir === 'left' || dir === 'right');
+            const isR = (dir === 'right' || dir === 'down');
+
+            for (let i = 0; i < 4; i++) {
+                let line = [];
+                for (let j = 0; j < 4; j++) {
+                    let idx = isH ? (i * 4 + j) : (j * 4 + i);
+                    line.push(parseInt(squares[idx].innerHTML || 0));
+                }
+                let newLine = processLine(line, isR);
+                for (let j = 0; j < 4; j++) {
+                    let idx = isH ? (i * 4 + j) : (j * 4 + i);
+                    if (parseInt(squares[idx].innerHTML || 0) !== newLine[j]) hasChanged = true;
+                    squares[idx].innerHTML = newLine[j] === 0 ? "" : newLine[j];
+                }
+            }
+            if (hasChanged) { generate(); scoreDisplay.innerHTML = score; }
+        }
+
+        function processLine(line, rev) {
+            let f = line.filter(n => n);
+            if (rev) f.reverse();
+            for (let i = 0; i < f.length - 1; i++) {
+                if (f[i] === f[i+1]) { f[i] *= 2; score += f[i]; f.splice(i+1, 1); }
+            }
+            while (f.length < 4) f.push(0);
+            if (rev) f.reverse();
+            return f;
+        }
+
+        function updateStyles() {
+            squares.forEach(sq => {
+                let v = sq.innerHTML;
+                sq.className = 'cell' + (v ? ' tile-' + v : '');
+            });
+        }
+
+        document.addEventListener('keyup', (e) => {
+            if (isQuizActive || homeScreen.style.display !== 'none') return;
+            if (e.key === 'ArrowLeft') move('left');
+            if (e.key === 'ArrowUp') move('up');
+            if (e.key === 'ArrowRight') move('right');
+            if (e.key === 'ArrowDown') move('down');
+        });
+    </script>
+</body>
+</html>
